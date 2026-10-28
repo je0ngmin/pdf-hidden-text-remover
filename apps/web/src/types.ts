@@ -14,6 +14,8 @@ export interface Evidence {
   textColor: [number, number, number];
   backgroundColor: [number, number, number];
   position: [number, number];
+  /** PDF user-space coordinates: [xMin, yMin, xMax, yMax]. */
+  boundingBox: [number, number, number, number];
   renderMode: number;
 }
 

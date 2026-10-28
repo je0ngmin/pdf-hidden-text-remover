@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -11,6 +11,7 @@ import {
   FileSearch,
   Info,
   LoaderCircle,
+  LocateFixed,
   LockKeyhole,
   ScanSearch,
   ShieldCheck,
@@ -20,7 +21,10 @@ import {
 import { cleanPdf, scanPdf } from "./lib/pdf-engine";
 import type { DetectionKind, Finding, ScanReport, Severity } from "./types";
 
+const PdfPreview = lazy(() => import("./components/PdfPreview"));
+
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const REVIEW_HISTORY_KEY = "pdfHiddenTextRemoverReview";
 
 const categoryLabels: Record<DetectionKind, string> = {
   invisible_render_mode: "비표시 렌더링",
@@ -62,6 +66,8 @@ function downloadBytes(bytes: Uint8Array, filename: string) {
 
 function App() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const operationIdRef = useRef(0);
+  const scanAbortControllerRef = useRef<AbortController | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [sourceBytes, setSourceBytes] = useState<Uint8Array | null>(null);
@@ -79,7 +85,17 @@ function App() {
 
   const visibleSelected = filteredFindings.filter((finding) => selected.has(finding.id)).length;
 
+  useEffect(() => {
+    function onPopState() {
+      reset();
+    }
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   async function analyze(nextFile: File) {
+    const operationId = ++operationIdRef.current;
     setError(null);
     if (nextFile.type !== "application/pdf" && !nextFile.name.toLowerCase().endsWith(".pdf")) {
       setError("PDF 파일만 검사할 수 있습니다.");
@@ -90,15 +106,27 @@ function App() {
       return;
     }
 
+    scanAbortControllerRef.current?.abort();
+    const scanAbortController = new AbortController();
+    scanAbortControllerRef.current = scanAbortController;
     setFile(nextFile);
     setStage("scanning");
     try {
-      const result = await scanPdf(nextFile);
+      const result = await scanPdf(nextFile, scanAbortController.signal);
+      if (operationId !== operationIdRef.current) return;
       setSourceBytes(result.bytes);
       setReport(result.report);
       setSelected(new Set(result.report.findings.map((finding) => finding.id)));
+      const currentState = window.history.state;
+      const nextState = currentState && typeof currentState === "object" ? { ...currentState } : {};
+      window.history.pushState(
+        { ...nextState, [REVIEW_HISTORY_KEY]: true },
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
       setStage("review");
     } catch (caught) {
+      if (operationId !== operationIdRef.current) return;
       const message = caught instanceof Error ? caught.message : String(caught);
       setError(
         message.includes("Failed to fetch") || message.includes("import")
@@ -106,6 +134,10 @@ function App() {
           : message,
       );
       setStage("idle");
+    } finally {
+      if (scanAbortControllerRef.current === scanAbortController) {
+        scanAbortControllerRef.current = null;
+      }
     }
   }
 
@@ -145,35 +177,59 @@ function App() {
 
   async function exportPdf() {
     if (!sourceBytes || !file) return;
+    const operationId = operationIdRef.current;
     setStage("exporting");
     setError(null);
     try {
       const output = await cleanPdf(sourceBytes, [...selected]);
+      if (operationId !== operationIdRef.current) return;
       const stem = file.name.replace(/\.pdf$/i, "");
       downloadBytes(output, `${stem}-clean.pdf`);
       setStage("review");
     } catch (caught) {
+      if (operationId !== operationIdRef.current) return;
       setError(caught instanceof Error ? caught.message : String(caught));
       setStage("review");
     }
   }
 
   function reset() {
+    scanAbortControllerRef.current?.abort();
+    scanAbortControllerRef.current = null;
+    operationIdRef.current += 1;
     setStage("idle");
     setFile(null);
     setReport(null);
     setSourceBytes(null);
     setSelected(new Set());
+    setDragging(false);
     setFilter("all");
     setError(null);
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+  }
+
+  function returnHome() {
+    if (window.history.state?.[REVIEW_HISTORY_KEY]) {
+      window.history.back();
+      return;
+    }
+    reset();
   }
 
   return (
     <div className="flex min-h-dvh flex-col bg-white text-slate-950 antialiased">
       <header className="bg-white">
         <div className="mx-auto flex h-16 w-full max-w-240 items-center justify-between px-12">
-          <a className="flex items-center gap-4 text-slate-950" href="#top" aria-label="홈">
+          <button className="flex items-center gap-4 text-slate-950" type="button" onClick={returnHome} aria-label="첫 화면으로 돌아가기">
             <span className="text-[17px] font-normal">pdf-hidden-text-remover</span>
+          </button>
+          <a
+            href="https://github.com/je0ngmin/pdf-hidden-text-remover"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="GitHub로 이동"
+          >
+            <img src={"./gh.svg"} width="30" height="30" alt="" />
           </a>
         </div>
       </header>
@@ -182,16 +238,10 @@ function App() {
         {stage === "idle" || stage === "scanning" ? (
           <section className="flex flex-col w-full gap-12 px-5 py-5">
             <div className="mx-auto max-w-5xl w-full">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-200/60 w-full">
-                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <FileSearch size={17} className="text-slate-600" /> PDF 검사하기...
-                  </div>
-                  <span className="text-sm text-slate-500">최대 50MB</span>
-                </div>
+              <div className="w-full">
                 <div className="p-4">
                   <div
-                    className={`flex min-h-60 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging
+                    className={`flex min-h-60 flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging
                         ? "border-blue-500 bg-blue-50"
                         : stage === "scanning"
                           ? "border-blue-300 bg-blue-50/60"
@@ -204,7 +254,7 @@ function App() {
                   >
                     {stage === "scanning" ? (
                       <>
-                        <span className="grid size-14 place-items-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-200">
+                        <span className="grid size-14 place-items-center rounded-xl bg-blue-600 text-white">
                           <LoaderCircle className="animate-spin" size={27} />
                         </span>
                         <h2 className="mt-6 text-xl font-semibold text-slate-950">페이지를 분석하고 있습니다</h2>
@@ -214,6 +264,13 @@ function App() {
                         <div className="mt-7 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-blue-100">
                           <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-600" />
                         </div>
+                        <button
+                          className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
+                          type="button"
+                          onClick={reset}
+                        >
+                          <X size={16} /> 검사 취소
+                        </button>
                       </>
                     ) : (
                       <>
@@ -223,18 +280,18 @@ function App() {
                         <h2 className="mt-6 text-xl font-semibold text-slate-950">이곳에 검사할 PDF를 놓으세요</h2>
                         <p className="mt-2 text-sm leading-6 text-slate-600">이 영역으로 드래그하거나<br />아래 버튼에서 파일을 선택하세요.</p>
                         <button
-                          className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white  transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                          className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white  transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                           onClick={() => inputRef.current?.click()}
                         >
                           <Upload size={17} /> PDF 선택
                         </button>
+                        <div className="flex items-center gap-2 text-sm leading-normal mt-5 text-slate-600">
+                          <Info className="shrink-0 text-slate-400" size={16} />
+                          업로드한 파일은 서버에 전송되지 않으며, 웹 브라우저 내부에서만 처리됩니다.
+                        </div>
                       </>
                     )}
                   </div>
-                </div>
-                <div className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-5 pt-3 pb-3.5 text-sm leading-normal text-slate-500">
-                  <Info className="shrink-0 text-slate-400" size={16} />
-                  업로드한 파일은 서버에 전송되지 않으며, 웹 브라우저 내부에서만 처리됩니다.
                 </div>
               </div>
             </div>
@@ -242,16 +299,17 @@ function App() {
               <ReadmeContent />
             </div>
           </section>
-        ) : report && file ? (
+        ) : report && file && sourceBytes ? (
           <ReviewWorkspace
             file={file}
+            sourceBytes={sourceBytes}
             report={report}
             stage={stage}
             selected={selected}
             filter={filter}
             filteredFindings={filteredFindings}
             visibleSelected={visibleSelected}
-            onReset={reset}
+            onReset={returnHome}
             onExport={() => void exportPdf()}
             onFilter={setFilter}
             onToggleFinding={toggleFinding}
@@ -344,6 +402,7 @@ function Feature({ icon, title, description }: { icon: React.ReactNode; title: s
 
 interface ReviewWorkspaceProps {
   file: File;
+  sourceBytes: Uint8Array;
   report: ScanReport;
   stage: Stage;
   selected: Set<string>;
@@ -359,6 +418,7 @@ interface ReviewWorkspaceProps {
 
 function ReviewWorkspace({
   file,
+  sourceBytes,
   report,
   stage,
   selected,
@@ -371,6 +431,8 @@ function ReviewWorkspace({
   onToggleFinding,
   onToggleVisible,
 }: ReviewWorkspaceProps) {
+  const [activeFindingId, setActiveFindingId] = useState<string | null>(report.findings[0]?.id ?? null);
+  const [previewPage, setPreviewPage] = useState(report.findings[0]?.page ?? 1);
   const nothingSelected = selected.size === 0;
   const everythingSelected = report.findings.length > 0 && selected.size === report.findings.length;
   const exportLabel = nothingSelected
@@ -379,34 +441,43 @@ function ReviewWorkspace({
       ? "모두 제거 후 PDF 내보내기"
       : `${selected.size}개 제거 후 PDF 내보내기`;
 
+  function focusFinding(id: string) {
+    const finding = report.findings.find((item) => item.id === id);
+    if (!finding) return;
+    setActiveFindingId(id);
+    setPreviewPage(finding.page);
+  }
+
   return (
-    <section className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:py-14">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <section className="mx-auto w-full max-w-[1600px] px-5 py-5 sm:px-8">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between max-w-240 mx-auto w-full px-12">
         <div className="flex items-start gap-4">
-          <button className="mt-1 grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600  hover:border-slate-300 hover:text-slate-950" onClick={onReset} title="다른 PDF 검사">
-            <ArrowLeft size={19} />
-          </button>
           <div>
-            <div className="mb-1 flex items-center gap-2 text-sm font-medium text-blue-600"><Check size={16} /> 검사 완료</div>
-            <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl leading-normal">{file.name}</h1>
-            <p className="mt-1 break-all text-base text-slate-600">{formatBytes(file.size)} / {report.pageCount}페이지</p>
+            <button
+              className="mt-1 text-sm flex h-9 px-3 gap-1.5 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600  hover:border-slate-300 hover:text-slate-950"
+              onClick={onReset} title="다른 PDF 파일 검사하기"
+            >
+              <ArrowLeft size={14} aria-hidden='true' />
+              <span>다른 PDF 파일 검사하기</span>
+            </button>
+            <h1 className="mt-3 text-2xl font-bold text-slate-950 sm:text-3xl leading-normal">{file.name}</h1>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+              <SummaryStat value={report.summary.total} label="전체 의심 항목" />
+              <SummaryStat value={report.summary.high} label="높은 의심" />
+              <SummaryStat value={report.summary.medium} label="검토 필요" />
+              <SummaryStat value={selected.size} label="제거 예정" primary />
+            </div>
+            <p className="mt-2.5 break-all text-sm text-slate-400">{formatBytes(file.size)} / {report.pageCount}페이지</p>
           </div>
         </div>
         <button
-          className="inline-flex h-11 items-center justify-center gap-2 self-stretch rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 lg:self-auto"
+          className="inline-flex h-11 items-center justify-center gap-2 self-stretch rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 lg:self-auto shrink-0"
           onClick={onExport}
           disabled={stage === "exporting" || nothingSelected}
         >
           {stage === "exporting" ? <LoaderCircle className="animate-spin" size={18} /> : <Download size={18} />}
           {exportLabel}
         </button>
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-baseline gap-x-8 gap-y-3">
-        <SummaryStat value={report.summary.total} label="전체 의심 항목" />
-        <SummaryStat value={report.summary.high} label="높은 의심" />
-        <SummaryStat value={report.summary.medium} label="검토 필요" />
-        <SummaryStat value={selected.size} label="제거 예정" primary />
       </div>
 
       {report.warnings.length > 0 && (
@@ -416,7 +487,7 @@ function ReviewWorkspace({
         </div>
       )}
 
-      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[190px_minmax(320px,1fr)_minmax(300px,0.9fr)]">
         <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white lg:sticky lg:top-5">
           <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">감지 유형</div>
           <div className="p-2 flex flex-col gap-1">
@@ -443,16 +514,41 @@ function ReviewWorkspace({
 
           {filteredFindings.length === 0 ? (
             <div className="grid min-h-64 place-items-center px-6 text-center">
-              <div><ShieldCheck className="mx-auto text-blue-600" size={34} /><h3 className="mt-3 font-semibold text-slate-900">이 유형의 항목이 없습니다</h3></div>
+              <div><ShieldCheck className="mx-auto text-gray-600" size={34} /><h3 className="mt-3 font-semibold text-slate-900">이 유형의 항목이 없습니다</h3></div>
             </div>
           ) : (
             <div className="divide-y divide-slate-200">
               {filteredFindings.map((finding) => (
-                <FindingRow key={finding.id} finding={finding} selected={selected.has(finding.id)} onToggle={() => onToggleFinding(finding.id)} />
+                <FindingRow
+                  key={finding.id}
+                  finding={finding}
+                  selected={selected.has(finding.id)}
+                  active={activeFindingId === finding.id}
+                  onToggle={() => onToggleFinding(finding.id)}
+                  onFocus={() => focusFinding(finding.id)}
+                />
               ))}
             </div>
           )}
         </div>
+
+        <Suspense
+          fallback={(
+            <div className="grid min-h-50 place-items-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">
+              <span className="flex items-center gap-2"><LoaderCircle className="animate-spin" size={17} /> 미리보기 준비 중</span>
+            </div>
+          )}
+        >
+          <PdfPreview
+            bytes={sourceBytes}
+            findings={report.findings}
+            selected={selected}
+            activeFindingId={activeFindingId}
+            page={previewPage}
+            onPageChange={setPreviewPage}
+            onFindingFocus={focusFinding}
+          />
+        </Suspense>
       </div>
     </section>
   );
@@ -483,7 +579,19 @@ function CheckBox({ checked }: { checked: boolean }) {
   );
 }
 
-function FindingRow({ finding, selected, onToggle }: { finding: Finding; selected: boolean; onToggle: () => void }) {
+function FindingRow({
+  finding,
+  selected,
+  active,
+  onToggle,
+  onFocus,
+}: {
+  finding: Finding;
+  selected: boolean;
+  active: boolean;
+  onToggle: () => void;
+  onFocus: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <article className={`grid grid-cols-[24px_minmax(0,1fr)] gap-3 px-5 py-5 transition-colors sm:gap-4 sm:px-6 ${selected ? "bg-blue-50/50" : "bg-white"}`}>
@@ -491,15 +599,7 @@ function FindingRow({ finding, selected, onToggle }: { finding: Finding; selecte
         <CheckBox checked={selected} />
       </button>
       <div className="min-w-0">
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-            <span className={`size-2 rounded-full ${severityStyles[finding.severity]}`} />
-            {severityLabels[finding.severity]}
-          </span>
-          <span className="text-xs font-medium text-slate-400">페이지 {finding.page}</span>
-        </div>
-
-        <blockquote className="mt-3 break-words border-l-2 border-blue-500 pl-3 font-mono text-sm leading-6 text-slate-900">
+        <blockquote className="wrap-break-word border-l-2 border-blue-500 pl-2.5 font-mono text-sm leading-normal text-slate-900">
           {finding.text}
         </blockquote>
 
@@ -509,8 +609,8 @@ function FindingRow({ finding, selected, onToggle }: { finding: Finding; selecte
           ))}
         </div>
 
-        <button className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-700" onClick={() => setExpanded((value) => !value)}>
-          감지 근거 {finding.reasons.length}개
+        <button className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-700" onClick={() => setExpanded((value) => !value)}>
+          {finding.reasons.length}개의 감지 근거
           <ChevronDown className={`transition-transform ${expanded ? "rotate-180" : ""}`} size={15} />
         </button>
 

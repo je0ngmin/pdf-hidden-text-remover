@@ -77,6 +77,8 @@ pub struct Evidence {
     pub text_color: [f32; 3],
     pub background_color: [f32; 3],
     pub position: [f32; 2],
+    /// Axis-aligned text bounds in PDF user-space: [x_min, y_min, x_max, y_max].
+    pub bounding_box: [f32; 4],
     pub render_mode: i64,
 }
 
@@ -90,6 +92,14 @@ struct GraphicsState {
     render_mode: i64,
     text_matrix: [f32; 6],
     ctm: [f32; 6],
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+enum CurrentPath {
+    #[default]
+    Empty,
+    Rectangle([f32; 4]),
+    Other,
 }
 
 impl Default for GraphicsState {
@@ -181,7 +191,7 @@ fn scan_page(
     let mut findings = Vec::new();
     let mut state = GraphicsState::default();
     let mut stack = Vec::new();
-    let mut pending_rect: Option<[f32; 4]> = None;
+    let mut current_path = CurrentPath::Empty;
     let mut page_background = [1.0, 1.0, 1.0];
 
     for (index, operation) in content.operations.iter().enumerate() {
@@ -243,21 +253,30 @@ fn scan_page(
             "gs" => apply_ext_graphics_state(document, resources.as_ref(), operation, &mut state),
             "re" => {
                 if operation.operands.len() >= 4 {
-                    pending_rect = Some([
+                    let rect = [
                         number(operation.operands.first()).unwrap_or(0.0),
                         number(operation.operands.get(1)).unwrap_or(0.0),
                         number(operation.operands.get(2)).unwrap_or(0.0),
                         number(operation.operands.get(3)).unwrap_or(0.0),
-                    ]);
+                    ];
+                    current_path = match current_path {
+                        CurrentPath::Empty => {
+                            CurrentPath::Rectangle(transformed_rect_bounds(rect, state.ctm))
+                        }
+                        CurrentPath::Rectangle(_) | CurrentPath::Other => CurrentPath::Other,
+                    };
                 }
             }
-            "f" | "F" | "f*" => {
-                if let Some(rect) = pending_rect.take() {
+            "m" | "l" | "c" | "v" | "y" => current_path = CurrentPath::Other,
+            "f" | "F" | "f*" | "B" | "B*" | "b" | "b*" => {
+                if let CurrentPath::Rectangle(rect) = current_path {
                     if covers_page(rect, page_bounds) {
                         page_background = state.fill;
                     }
                 }
+                current_path = CurrentPath::Empty;
             }
+            "n" | "S" | "s" => current_path = CurrentPath::Empty,
             _ if is_text_show(operation) => {
                 let text = fonts
                     .get(&state.font_name)
@@ -303,6 +322,10 @@ fn merge_adjacent_findings(findings: Vec<Finding>) -> Vec<Finding> {
         previous.id = merge_finding_ids(&previous.id, &finding.id);
         previous.severity = previous.severity.max(finding.severity);
         previous.end_position = finding.end_position;
+        previous.evidence.bounding_box = union_bounding_boxes(
+            previous.evidence.bounding_box,
+            finding.evidence.bounding_box,
+        );
 
         for category in finding.categories {
             if !previous.categories.contains(&category) {
@@ -425,7 +448,10 @@ fn evaluate_text(
     state: &GraphicsState,
     bounds: [f32; 4],
 ) -> Option<Finding> {
-    let position = transform_point(state.ctm, state.text_matrix[4], state.text_matrix[5]);
+    let text_matrix = multiply_matrix(state.ctm, state.text_matrix);
+    let position = transform_point(text_matrix, 0.0, 0.0);
+    let text_width = estimated_text_width(&text, state.font_size);
+    let bounding_box = text_bounding_box(text_matrix, text_width, state.font_size);
     let contrast = contrast_ratio(state.fill, state.background);
     let mut categories = BTreeSet::new();
     let mut reasons = Vec::new();
@@ -482,10 +508,7 @@ fn evaluate_text(
     Some(Finding {
         id: finding_id(page, operation_index),
         page,
-        end_position: [
-            position[0] + estimated_text_width(&text, state.font_size),
-            position[1],
-        ],
+        end_position: transform_point(text_matrix, text_width, 0.0),
         text,
         severity,
         categories: categories.into_iter().collect(),
@@ -497,9 +520,51 @@ fn evaluate_text(
             text_color: state.fill,
             background_color: state.background,
             position: [round2(position[0]), round2(position[1])],
+            bounding_box,
             render_mode: state.render_mode,
         },
     })
+}
+
+fn text_bounding_box(matrix: [f32; 6], width: f32, font_size: f32) -> [f32; 4] {
+    // Font metrics are not consistently available in arbitrary PDFs. These ascent/descent
+    // estimates deliberately enclose the usual glyph area and remain useful for highlighting.
+    let descent = -font_size * 0.2;
+    let ascent = font_size * 0.8;
+    let corners = [
+        transform_point(matrix, 0.0, descent),
+        transform_point(matrix, width, descent),
+        transform_point(matrix, 0.0, ascent),
+        transform_point(matrix, width, ascent),
+    ];
+
+    let min_x = corners
+        .iter()
+        .map(|point| point[0])
+        .fold(f32::INFINITY, f32::min);
+    let min_y = corners
+        .iter()
+        .map(|point| point[1])
+        .fold(f32::INFINITY, f32::min);
+    let max_x = corners
+        .iter()
+        .map(|point| point[0])
+        .fold(f32::NEG_INFINITY, f32::max);
+    let max_y = corners
+        .iter()
+        .map(|point| point[1])
+        .fold(f32::NEG_INFINITY, f32::max);
+
+    [round2(min_x), round2(min_y), round2(max_x), round2(max_y)]
+}
+
+fn union_bounding_boxes(first: [f32; 4], second: [f32; 4]) -> [f32; 4] {
+    [
+        round2(first[0].min(second[0])),
+        round2(first[1].min(second[1])),
+        round2(first[2].max(second[2])),
+        round2(first[3].max(second[3])),
+    ]
 }
 
 fn estimated_text_width(text: &str, font_size: f32) -> f32 {
@@ -576,17 +641,15 @@ where
 
 fn decode_pdf_string(bytes: &[u8]) -> String {
     if bytes.starts_with(&[0xFE, 0xFF]) {
-        let units = bytes[2..]
-            .chunks_exact(2)
-            .map(|pair| u16::from_be_bytes([pair[0], pair[1]]));
+        let (pairs, _) = bytes[2..].as_chunks::<2>();
+        let units = pairs.iter().map(|pair| u16::from_be_bytes(*pair));
         return std::char::decode_utf16(units)
             .map(|result| result.unwrap_or(char::REPLACEMENT_CHARACTER))
             .collect();
     }
     if bytes.starts_with(&[0xFF, 0xFE]) {
-        let units = bytes[2..]
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]));
+        let (pairs, _) = bytes[2..].as_chunks::<2>();
+        let units = pairs.iter().map(|pair| u16::from_le_bytes(*pair));
         return std::char::decode_utf16(units)
             .map(|result| result.unwrap_or(char::REPLACEMENT_CHARACTER))
             .collect();
@@ -733,9 +796,38 @@ fn cmyk_to_rgb(c: f32, m: f32, y: f32, k: f32) -> [f32; 3] {
     ]
 }
 
+fn transformed_rect_bounds(rect: [f32; 4], matrix: [f32; 6]) -> [f32; 4] {
+    let [x, y, width, height] = rect;
+    let corners = [
+        transform_point(matrix, x, y),
+        transform_point(matrix, x + width, y),
+        transform_point(matrix, x, y + height),
+        transform_point(matrix, x + width, y + height),
+    ];
+
+    let min_x = corners
+        .iter()
+        .map(|point| point[0])
+        .fold(f32::INFINITY, f32::min);
+    let min_y = corners
+        .iter()
+        .map(|point| point[1])
+        .fold(f32::INFINITY, f32::min);
+    let max_x = corners
+        .iter()
+        .map(|point| point[0])
+        .fold(f32::NEG_INFINITY, f32::max);
+    let max_y = corners
+        .iter()
+        .map(|point| point[1])
+        .fold(f32::NEG_INFINITY, f32::max);
+
+    [min_x, min_y, max_x, max_y]
+}
+
 fn covers_page(rect: [f32; 4], page: [f32; 4]) -> bool {
     let page_area = (page[2] - page[0]).abs() * (page[3] - page[1]).abs();
-    let rect_area = rect[2].abs() * rect[3].abs();
+    let rect_area = (rect[2] - rect[0]).abs() * (rect[3] - rect[1]).abs();
     page_area > 0.0 && rect_area / page_area > 0.8
 }
 
@@ -811,6 +903,8 @@ mod tests {
         assert!(report.findings[0]
             .categories
             .contains(&DetectionKind::LowContrast));
+        assert_eq!(report.findings[0].evidence.bounding_box[0], 72.0);
+        assert!(report.findings[0].evidence.bounding_box[2] > 72.0);
     }
 
     #[test]
@@ -837,6 +931,7 @@ mod tests {
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].text, "Annyeong");
         assert!(report.findings[0].id.contains('+'));
+        assert!(report.findings[0].evidence.bounding_box[2] >= 94.8);
 
         let cleaned = clean_pdf(&bytes, &[report.findings[0].id.clone()]).unwrap();
         assert!(scan_pdf(&cleaned).unwrap().findings.is_empty());
@@ -859,5 +954,33 @@ mod tests {
 
         let cleaned = clean_pdf(&bytes, &[report.findings[0].id.clone()]).unwrap();
         assert!(scan_pdf(&cleaned).unwrap().findings.is_empty());
+    }
+
+    #[test]
+    fn does_not_treat_a_page_clip_as_a_filled_background() {
+        let bytes = sample_pdf(
+            "0 0 595 842 re W* n 0 g 10 10 m 20 10 l 20 20 l f \
+             BT /F1 12 Tf 0 g 72 700 Td (Visible black text) Tj ET",
+        );
+
+        let report = scan_pdf(&bytes).unwrap();
+
+        assert!(report.findings.is_empty());
+    }
+
+    #[test]
+    fn detects_contrast_against_a_transformed_filled_background() {
+        let bytes = sample_pdf(
+            "q 0.5 0 0 0.5 0 0 cm 0 0 1190 1684 re f Q \
+             BT /F1 12 Tf 0 g 72 700 Td (Black on black) Tj ET",
+        );
+
+        let report = scan_pdf(&bytes).unwrap();
+
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].evidence.background_color, [0.0; 3]);
+        assert!(report.findings[0]
+            .categories
+            .contains(&DetectionKind::LowContrast));
     }
 }

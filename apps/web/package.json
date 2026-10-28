@@ -17,6 +17,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "github-markdown-css": "^5.9.0",
     "lucide-react": "latest",
+    "pdfjs-dist": "^4.10.38",
     "react": "latest",
     "react-dom": "latest",
     "react-markdown": "^10.1.0",
