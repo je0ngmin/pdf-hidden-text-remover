@@ -46,6 +46,7 @@ jobs:
         working-directory: apps/web
         env:
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          VITE_SITE_URL: ${{ steps.pages.outputs.base_url }}
         run: npm run build
 
       - name: Upload GitHub Pages artifact

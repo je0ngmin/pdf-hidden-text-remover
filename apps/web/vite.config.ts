@@ -1,13 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+import tailwindcss from '@tailwindcss/vite'
+import { redact } from '@tanstack/redact/vite'
 
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH || "/",
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 4173,
-  },
+  plugins: [react(), tailwindcss(), redact()],
   build: {
     target: "es2022",
   },
