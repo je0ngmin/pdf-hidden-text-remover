@@ -18,6 +18,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { logAnalyticsEvent } from "./lib/analytics";
 import { cleanPdf, scanPdf } from "./lib/pdf-engine";
 import type { DetectionKind, Finding, ScanReport, Severity } from "./types";
 
@@ -32,18 +33,6 @@ const categoryLabels: Record<DetectionKind, string> = {
   tiny_text: "초소형 텍스트",
   low_contrast: "낮은 대비",
   outside_page: "페이지 바깥",
-};
-
-const severityLabels: Record<Severity, string> = {
-  high: "높은 의심",
-  medium: "검토 필요",
-  low: "낮은 의심",
-};
-
-const severityStyles: Record<Severity, string> = {
-  high: "bg-blue-600",
-  medium: "bg-blue-400",
-  low: "bg-slate-400",
 };
 
 type Stage = "idle" | "scanning" | "review" | "exporting";
@@ -106,6 +95,7 @@ function App() {
       return;
     }
 
+    logAnalyticsEvent("pdf_upload");
     scanAbortControllerRef.current?.abort();
     const scanAbortController = new AbortController();
     scanAbortControllerRef.current = scanAbortController;
@@ -177,6 +167,7 @@ function App() {
 
   async function exportPdf() {
     if (!sourceBytes || !file) return;
+    logAnalyticsEvent("pdf_export");
     const operationId = operationIdRef.current;
     setStage("exporting");
     setError(null);
@@ -206,6 +197,11 @@ function App() {
     setFilter("all");
     setError(null);
     window.requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+  }
+
+  function cancelScan() {
+    logAnalyticsEvent("pdf_scan_cancel");
+    reset();
   }
 
   function returnHome() {
@@ -267,7 +263,7 @@ function App() {
                         <button
                           className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
                           type="button"
-                          onClick={reset}
+                          onClick={cancelScan}
                         >
                           <X size={16} /> 검사 취소
                         </button>

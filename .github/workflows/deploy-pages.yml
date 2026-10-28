@@ -46,6 +46,7 @@ jobs:
         working-directory: apps/web
         env:
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          FIREBASE_SCRIPT: ${{ vars.FIREBASE_SCRIPT }}
         run: npm run build
 
       - name: Upload GitHub Pages artifact
