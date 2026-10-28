@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import 'shadow-plugin';
+
+html, body {
+  scrollbar-gutter: stable;
+}
+
+button, a {
+  cursor: pointer;
+}
+button:disabled, a:disabled {
+  cursor: not-allowed;
+}
+
+.markdown-body {
+  color: var(--color-slate-900);
+  background-color: transparent;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-family: inherit;
+}
+
+.markdown-body a {
+  color: var(--color-blue-500);
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
+.markdown-body ul ul {
+  list-style-type: circle;
+}
+
+.markdown-body ul ul ul {
+  list-style-type: square;
+}
+
+.markdown-body li::marker {
+  color: #64748b;
+}
+
+.markdown-body .task-list-item {
+  list-style-type: none;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 640px) {
+  .markdown-body {
+    font-size: 15px;
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@clearlayer/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run wasm:dev && vite",
+    "build": "npm run wasm:build && tsc -b && vite build",
+    "build:web": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
+    "wasm:dev": "node scripts/build-wasm.mjs dev",
+    "wasm:build": "node scripts/build-wasm.mjs release"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^4.4.1",
+    "github-markdown-css": "^5.9.0",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "shadow-plugin": "^2.1.1",
+    "tailwindcss": "^4.3.3",
+    "vite": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest"
+  }
+}

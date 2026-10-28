@@ -1,0 +1,17 @@
+[package]
+name = "pdf-hidden-text-remover-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pdf-hidden-text-remover-core = { path = "../pdf-hidden-text-remover-core" }
+serde-wasm-bindgen.workspace = true
+wasm-bindgen.workspace = true
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom.workspace = true
+

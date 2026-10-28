@@ -1,0 +1,11 @@
+/target
+/apps/web/node_modules
+/apps/web/dist
+/crates/pdf-hidden-text-remover-wasm/pkg
+/apps/web/public/wasm
+/apps/web/src/generated/wasm
+.DS_Store
+*.pdf
+*.tsbuildinfo
+!fixtures/*.pdf
+
