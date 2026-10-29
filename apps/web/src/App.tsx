@@ -213,10 +213,10 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-white text-slate-950 antialiased">
+    <div className="flex min-h-dvh flex-col bg-white text-gray-950 antialiased">
       <header className="bg-white">
         <div className="mx-auto flex h-16 w-full max-w-240 items-center justify-between px-12">
-          <button className="flex items-center gap-4 text-slate-950" type="button" onClick={returnHome} aria-label="첫 화면으로 돌아가기">
+          <button className="flex items-center gap-4 text-gray-950" type="button" onClick={returnHome} aria-label="첫 화면으로 돌아가기">
             <span className="text-[17px] font-normal">pdf-hidden-text-remover</span>
           </button>
           <a
@@ -232,62 +232,61 @@ function App() {
 
       <main id="top" className="flex-1">
         {stage === "idle" || stage === "scanning" ? (
-          <section className="flex flex-col w-full gap-12 px-5 py-5">
+          <section className="flex flex-col w-full gap-12 px-9 py-5 max-sm:px-5">
             <div className="mx-auto max-w-5xl w-full">
               <div className="w-full">
-                <div className="p-4">
-                  <div
-                    className={`flex min-h-60 flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging
-                        ? "border-blue-500 bg-blue-50"
-                        : stage === "scanning"
-                          ? "border-blue-300 bg-blue-50/60"
-                          : "border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/40"
-                      }`}
-                    onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={onDrop}
-                  >
-                    {stage === "scanning" ? (
-                      <>
-                        <span className="grid size-14 place-items-center rounded-xl bg-blue-600 text-white">
-                          <LoaderCircle className="animate-spin" size={27} />
-                        </span>
-                        <h2 className="mt-6 text-xl font-semibold text-slate-950">페이지를 분석하고 있습니다</h2>
-                        <p className="mt-2 max-w-sm break-all text-sm leading-6 text-slate-600">
-                          {file?.name}<br />텍스트 렌더링 상태와 배경 대비를 확인합니다.
-                        </p>
-                        <div className="mt-7 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-blue-100">
-                          <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-600" />
-                        </div>
-                        <button
-                          className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
-                          type="button"
-                          onClick={cancelScan}
-                        >
-                          <X size={16} /> 검사 취소
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="grid size-14 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 ">
-                          <Upload size={26} />
-                        </span>
-                        <h2 className="mt-6 text-xl font-semibold text-slate-950">이곳에 검사할 PDF를 놓으세요</h2>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">이 영역으로 드래그하거나<br />아래 버튼에서 파일을 선택하세요.</p>
-                        <button
-                          className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white  transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                          onClick={() => inputRef.current?.click()}
-                        >
-                          <Upload size={17} /> PDF 선택
-                        </button>
-                        <div className="flex items-center gap-2 text-sm leading-normal mt-5 text-slate-600">
-                          <Info className="shrink-0 text-slate-400" size={16} />
-                          업로드한 파일은 서버에 전송되지 않으며, 웹 브라우저 내부에서만 처리됩니다.
-                        </div>
-                      </>
-                    )}
-                  </div>
+                <div
+                  className={`flex min-h-60 flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-12 text-center transition-colors ${dragging
+                    ? "border-blue-500 bg-blue-50"
+                    : stage === "scanning"
+                      ? "border-blue-300 bg-blue-50/60"
+                      : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/40"
+                    }`}
+                  onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={onDrop}
+                >
+                  {stage === "scanning" ? (
+                    <>
+                      <span className="grid size-14 place-items-center rounded-xl bg-blue-600 text-white">
+                        <LoaderCircle className="animate-spin" size={27} />
+                      </span>
+                      <h2 className="mt-6 text-xl font-semibold text-gray-950">페이지를 분석하고 있습니다</h2>
+                      <p className="mt-2 max-w-sm break-all text-sm leading-6 text-gray-600">
+                        {file?.name}<br />텍스트 렌더링 상태와 배경 대비를 확인합니다.
+                      </p>
+                      <div className="mt-7 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-blue-100">
+                        <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-600" />
+                      </div>
+                      <button
+                        className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
+                        type="button"
+                        onClick={cancelScan}
+                      >
+                        <X size={16} /> 검사 취소
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="grid size-14 place-items-center rounded-xl border border-gray-200 bg-white text-gray-600 ">
+                        <Upload size={26} />
+                      </span>
+                      <h2 className="mt-6 text-xl font-semibold text-gray-950">이곳에 검사할 PDF를 놓으세요</h2>
+                      <p className="mt-2 text-sm leading-relaxed text-gray-600">이 영역으로 드래그하거나<br />아래 버튼에서 파일을 선택하세요.</p>
+                      <p className="mt-2 text-xs leading-tight text-gray-400">최대 50MB까지</p>
+                      <button
+                        className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white  transition-colors hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                        onClick={() => inputRef.current?.click()}
+                      >
+                        <Upload size={17} /> PDF 선택
+                      </button>
+                      <div className="flex items-center gap-2 text-sm leading-normal mt-5 text-gray-600 text-center">
+                        <Info className="shrink-0 text-gray-400" size={16} />
+                        <p>업로드한 파일은 서버에 전송되지 않으며, <span className="inline-block">웹 브라우저 내부에서만 처리됩니다.</span></p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -314,10 +313,10 @@ function App() {
         ) : null}
 
         {error && (
-          <div className="fixed bottom-5 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-center gap-3 rounded-xl border border-blue-200 bg-white p-4 text-sm text-slate-700 shadow-2xl" role="alert">
+          <div className="fixed bottom-5 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-xl -trangray-x-1/2 items-center gap-3 rounded-xl border border-blue-200 bg-white p-4 text-sm text-gray-700 shadow-2xl" role="alert">
             <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600"><AlertTriangle size={17} /></span>
             <span className="flex-1">{error}</span>
-            <button className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => setError(null)} title="오류 닫기">
+            <button className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" onClick={() => setError(null)} title="오류 닫기">
               <X size={17} />
             </button>
           </div>
@@ -352,7 +351,7 @@ function ReadmeContent() {
 
   if (loadError) {
     return (
-      <div className="mx-auto w-full max-w-240 pb-10 text-sm text-slate-500">
+      <div className="mx-auto w-full max-w-240 pb-10 text-sm text-gray-500">
         README.md를 불러오지 못했습니다.
       </div>
     );
@@ -360,7 +359,7 @@ function ReadmeContent() {
 
   if (!markdown) {
     return (
-      <div className="mx-auto flex w-full max-w-240 items-center gap-2 pb-10 text-sm text-slate-500">
+      <div className="mx-auto flex w-full max-w-240 items-center gap-2 pb-10 text-sm text-gray-500">
         <LoaderCircle className="animate-spin" size={16} /> 문서를 불러오는 중입니다.
       </div>
     );
@@ -389,8 +388,8 @@ function Feature({ icon, title, description }: { icon: React.ReactNode; title: s
     <div className="flex items-center gap-3">
       <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">{icon}</span>
       <div>
-        <p className="text-sm font-semibold text-slate-900">{title}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+        <p className="text-sm font-semibold text-gray-900">{title}</p>
+        <p className="mt-0.5 text-xs text-gray-500">{description}</p>
       </div>
     </div>
   );
@@ -446,28 +445,28 @@ function ReviewWorkspace({
 
   return (
     <section className="mx-auto w-full max-w-[1600px] px-5 py-5 sm:px-8">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between max-w-240 mx-auto w-full px-12">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between max-w-240 mx-auto w-full px-12 max-md:px-4">
         <div className="flex items-start gap-4">
           <div>
             <button
-              className="mt-1 text-sm flex h-9 px-3 gap-1.5 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600  hover:border-slate-300 hover:text-slate-950"
+              className="mt-1 text-sm flex h-9 px-3 gap-1.5 shrink-0 place-items-center rounded-2xl border border-gray-200 bg-white text-gray-600  hover:border-gray-300 hover:text-gray-950"
               onClick={onReset} title="다른 PDF 파일 검사하기"
             >
               <ArrowLeft size={14} aria-hidden='true' />
               <span>다른 PDF 파일 검사하기</span>
             </button>
-            <h1 className="mt-3 text-2xl font-bold text-slate-950 sm:text-3xl leading-normal">{file.name}</h1>
+            <h1 className="mt-3 text-2xl font-bold text-gray-950 sm:text-3xl leading-normal">{file.name}</h1>
             <div className="mt-2 flex flex-wrap items-baseline gap-x-8 gap-y-3">
               <SummaryStat value={report.summary.total} label="전체 의심 항목" />
               <SummaryStat value={report.summary.high} label="높은 의심" />
               <SummaryStat value={report.summary.medium} label="검토 필요" />
               <SummaryStat value={selected.size} label="제거 예정" primary />
             </div>
-            <p className="mt-2.5 break-all text-sm text-slate-400">{formatBytes(file.size)} / {report.pageCount}페이지</p>
+            <p className="mt-2.5 break-all text-sm text-gray-400">{formatBytes(file.size)} / {report.pageCount}페이지</p>
           </div>
         </div>
         <button
-          className="inline-flex h-11 items-center justify-center gap-2 self-stretch rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 lg:self-auto shrink-0"
+          className="inline-flex h-11 items-center justify-center gap-2 self-stretch rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 lg:self-auto shrink-0"
           onClick={onExport}
           disabled={stage === "exporting" || nothingSelected}
         >
@@ -484,8 +483,8 @@ function ReviewWorkspace({
       )}
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[190px_minmax(320px,1fr)_minmax(300px,0.9fr)]">
-        <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white lg:sticky lg:top-5">
-          <div className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">감지 유형</div>
+        <aside className="overflow-hidden rounded-xl border border-gray-200 bg-white lg:sticky lg:top-5">
+          <div className="border-b border-gray-200 px-4 py-3 text-sm font-semibold text-gray-900">감지 유형</div>
           <div className="p-2 flex flex-col gap-1">
             <FilterButton active={filter === "all"} onClick={() => onFilter("all")} label="전체" count={report.findings.length} />
             {(Object.keys(categoryLabels) as DetectionKind[]).map((kind) => {
@@ -497,12 +496,12 @@ function ReviewWorkspace({
           </div>
         </aside>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white ">
-          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white ">
+          <div className="flex flex-col gap-4 border-b border-gray-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-semibold text-slate-950">{filter === "all" ? "모든 의심 항목" : categoryLabels[filter]}</h2>
+              <h2 className="font-semibold text-gray-950">{filter === "all" ? "모든 의심 항목" : categoryLabels[filter]}</h2>
             </div>
-            <button className="flex items-center gap-2 self-start text-sm text-slate-600 hover:text-slate-950 sm:self-auto" onClick={onToggleVisible}>
+            <button className="flex items-center gap-2 self-start text-sm text-gray-600 hover:text-gray-950 sm:self-auto" onClick={onToggleVisible}>
               <CheckBox checked={visibleSelected === filteredFindings.length && filteredFindings.length > 0} />
               전체 선택
             </button>
@@ -510,10 +509,10 @@ function ReviewWorkspace({
 
           {filteredFindings.length === 0 ? (
             <div className="grid min-h-64 place-items-center px-6 text-center">
-              <div><ShieldCheck className="mx-auto text-gray-600" size={34} /><h3 className="mt-3 font-semibold text-slate-900">이 유형의 항목이 없습니다</h3></div>
+              <div><ShieldCheck className="mx-auto text-gray-600" size={34} /><h3 className="mt-3 font-semibold text-gray-900">이 유형의 항목이 없습니다</h3></div>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-gray-200">
               {filteredFindings.map((finding) => (
                 <FindingRow
                   key={finding.id}
@@ -530,7 +529,7 @@ function ReviewWorkspace({
 
         <Suspense
           fallback={(
-            <div className="grid min-h-50 place-items-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">
+            <div className="grid min-h-50 place-items-center rounded-xl border border-gray-200 bg-white text-sm text-gray-500">
               <span className="flex items-center gap-2"><LoaderCircle className="animate-spin" size={17} /> 미리보기 준비 중</span>
             </div>
           )}
@@ -553,23 +552,23 @@ function ReviewWorkspace({
 function SummaryStat({ value, label, primary = false }: { value: number; label: string; primary?: boolean }) {
   return (
     <p className="flex items-baseline gap-2">
-      <strong className={`text-xl font-bold ${primary ? "text-blue-600" : "text-slate-950"}`}>{value}</strong>
-      <span className="text-sm text-slate-500">{label}</span>
+      <strong className={`text-xl font-bold ${primary ? "text-blue-600" : "text-gray-950"}`}>{value}</strong>
+      <span className="text-sm text-gray-500">{label}</span>
     </p>
   );
 }
 
 function FilterButton({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
   return (
-    <button className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${active ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`} onClick={onClick}>
-      <span>{label}</span><span className={active ? "text-blue-600" : "text-slate-400"}>{count}</span>
+    <button className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${active ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-950"}`} onClick={onClick}>
+      <span>{label}</span><span className={active ? "text-blue-600" : "text-gray-400"}>{count}</span>
     </button>
   );
 }
 
 function CheckBox({ checked }: { checked: boolean }) {
   return (
-    <span className={`grid size-5 shrink-0 place-items-center rounded border ${checked ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+    <span className={`grid size-5 shrink-0 place-items-center rounded border ${checked ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white"}`}>
       {checked && <Check size={13} strokeWidth={3} />}
     </span>
   );
@@ -595,27 +594,27 @@ function FindingRow({
         <CheckBox checked={selected} />
       </button>
       <div className="min-w-0">
-        <blockquote className="wrap-break-word border-l-2 border-blue-500 pl-2.5 font-mono text-sm leading-normal text-slate-900">
+        <blockquote className="wrap-break-word border-l-2 border-blue-500 pl-2.5 font-mono text-sm leading-normal text-gray-900">
           {finding.text}
         </blockquote>
 
         <div className="mt-3 flex flex-wrap gap-2">
           {finding.categories.map((category) => (
-            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600" key={category}>{categoryLabels[category]}</span>
+            <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600" key={category}>{categoryLabels[category]}</span>
           ))}
         </div>
 
-        <button className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-700" onClick={() => setExpanded((value) => !value)}>
+        <button className="mt-3 flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-blue-700" onClick={() => setExpanded((value) => !value)}>
           {finding.reasons.length}개의 감지 근거
           <ChevronDown className={`transition-transform ${expanded ? "rotate-180" : ""}`} size={15} />
         </button>
 
         {expanded && (
-          <div className="mt-4 border-l-2 border-slate-200 bg-slate-50 px-4 py-3">
-            <ul className="space-y-1.5 text-sm leading-6 text-slate-700">
+          <div className="mt-4 border-l-2 border-gray-200 bg-gray-50 px-4 py-3">
+            <ul className="space-y-1.5 text-sm leading-6 text-gray-700">
               {finding.reasons.map((reason) => <li className="flex gap-2" key={reason}><span className="text-blue-600">•</span><span>{reason}</span></li>)}
             </ul>
-            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-slate-200 pt-4 text-xs sm:grid-cols-4">
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-gray-200 pt-4 text-xs sm:grid-cols-4">
               <Evidence label="글자 크기" value={`${finding.evidence.fontSize}pt`} />
               <Evidence label="명암비" value={`${finding.evidence.contrastRatio}:1`} />
               <Evidence label="불투명도" value={`${Math.round(finding.evidence.opacity * 100)}%`} />
@@ -629,7 +628,7 @@ function FindingRow({
 }
 
 function Evidence({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-slate-500">{label}</dt><dd className="mt-1 font-semibold text-slate-900">{value}</dd></div>;
+  return <div><dt className="text-gray-500">{label}</dt><dd className="mt-1 font-semibold text-gray-900">{value}</dd></div>;
 }
 
 export default App;
